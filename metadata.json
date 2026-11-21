@@ -1,0 +1,6 @@
+{
+  "name": "VettoreLegno — Studio LaserGRBL",
+  "description": "Generatore parametrico di file vettoriali SVG, DXF e G-Code (.nc) ottimizzati per LaserGRBL: mandala, incastri a dita, cerniere flessibili, targhe e tracciamento immagini per taglio e intaglio su legno.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
