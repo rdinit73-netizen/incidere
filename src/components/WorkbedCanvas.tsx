@@ -30,6 +30,7 @@ interface WorkbedCanvasProps {
   onBedBackgroundChange: (bg: BedBackground) => void;
   originMode: OriginMode;
   stats: ToolpathStats;
+  onFitToBed?: () => void;
 }
 
 interface SimSegment {
@@ -49,6 +50,7 @@ export const WorkbedCanvas: React.FC<WorkbedCanvasProps> = ({
   onBedBackgroundChange,
   originMode,
   stats,
+  onFitToBed,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -244,12 +246,22 @@ export const WorkbedCanvas: React.FC<WorkbedCanvasProps> = ({
     return { x: 0, y: bedHeightMm };
   }, [originMode, stats.bounds, bedHeightMm]);
 
-  const majorStep = 50;
+  const majorStep = bedWidthMm <= 160 ? 25 : 50;
   const minorStep = 10;
   const xTicks: number[] = [];
   for (let x = 0; x <= bedWidthMm; x += majorStep) xTicks.push(x);
+  if (xTicks[xTicks.length - 1] !== bedWidthMm) xTicks.push(bedWidthMm);
   const yTicks: number[] = [];
   for (let y = 0; y <= bedHeightMm; y += majorStep) yTicks.push(y);
+  if (yTicks[yTicks.length - 1] !== bedHeightMm) yTicks.push(bedHeightMm);
+
+  const isOutOfBounds = Boolean(
+    stats.bounds &&
+      (stats.bounds.minX < -0.2 ||
+        stats.bounds.minY < -0.2 ||
+        stats.bounds.maxX > bedWidthMm + 0.2 ||
+        stats.bounds.maxY > bedHeightMm + 0.2)
+  );
 
   return (
     <div className="relative flex-1 flex flex-col bg-slate-100/90 overflow-hidden select-none">
@@ -637,6 +649,20 @@ export const WorkbedCanvas: React.FC<WorkbedCanvasProps> = ({
                 ? `${stats.bounds.width.toFixed(1)} × ${stats.bounds.height.toFixed(1)} mm`
                 : '0.0 × 0.0 mm'}
             </span>
+            {isOutOfBounds && onFitToBed && (
+              <>
+                <span aria-hidden="true" className="text-slate-300">
+                  ·
+                </span>
+                <button
+                  type="button"
+                  onClick={onFitToBed}
+                  className="font-medium text-red-700 hover:text-red-800 underline underline-offset-2 whitespace-nowrap"
+                >
+                  Fuori piano ({bedWidthMm}×{bedHeightMm}) · Adatta
+                </button>
+              </>
+            )}
             <span aria-hidden="true" className="hidden sm:inline text-slate-300">
               ·
             </span>

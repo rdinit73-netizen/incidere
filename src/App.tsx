@@ -170,12 +170,12 @@ export default function App() {
     simplifyEpsilon: 0.25,
     smoothIterations: 1,
     minAreaPx: 16,
-    targetWidthMm: 140,
-    outlineLayer: 'cut',
+    targetWidthMm: 110,
+    outlineLayer: 'engrave',
     fillMode: 'outline',
     hatchSpacingMm: 0.9,
-    addOuterCutFrame: true,
-    frameMarginMm: 10,
+    cutFrameMode: 'silhouette',
+    frameMarginMm: 5,
   });
   const [tracerImageSrc, setTracerImageSrc] = useState<string>('');
 
@@ -278,7 +278,36 @@ export default function App() {
   const handleBedSizeChange = useCallback((w: number, h: number) => {
     setBedWidthMm(w);
     setBedHeightMm(h);
+    const maxDim = Math.min(w, h) - 12;
+    setMandala((m) => (m.diameterMm > maxDim ? { ...m, diameterMm: Math.max(60, maxDim) } : m));
+    setSign((s) => (s.widthMm > w - 12 ? { ...s, widthMm: Math.max(60, w - 12) } : s));
+    setHinge((hg) => (hg.widthMm > w - 12 ? { ...hg, widthMm: Math.max(40, w - 12) } : hg));
+    setTracer((t) =>
+      t.targetWidthMm > w - 20 ? { ...t, targetWidthMm: Math.max(30, w - 24) } : t
+    );
   }, []);
+
+  const handleFitPathsToBed = useCallback(() => {
+    setPaths((prev) => {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const p of prev) {
+        for (const pt of p.points) {
+          if (pt.x < minX) minX = pt.x;
+          if (pt.y < minY) minY = pt.y;
+          if (pt.x > maxX) maxX = pt.x;
+          if (pt.y > maxY) maxY = pt.y;
+        }
+      }
+      const w = maxX - minX;
+      const h = maxY - minY;
+      if (w <= 0 || h <= 0) return prev;
+      const availW = bedWidthMm - 8;
+      const availH = bedHeightMm - 8;
+      const factor = Math.min(availW / w, availH / h, 1);
+      const scaled = factor < 1 ? scalePaths(prev, factor, factor) : prev;
+      return centerPathsOnBed(scaled, bedWidthMm, bedHeightMm);
+    });
+  }, [bedWidthMm, bedHeightMm]);
 
   const stats = useMemo(() => computeToolpathStats(paths, layers), [paths, layers]);
 
@@ -379,6 +408,7 @@ export default function App() {
             onBedBackgroundChange={setBedBackground}
             originMode={originMode}
             stats={stats}
+            onFitToBed={handleFitPathsToBed}
           />
         </div>
 

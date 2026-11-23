@@ -84,6 +84,7 @@ export const LaserSettingsPanel: React.FC<LaserSettingsPanelProps> = ({
               }}
               className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs font-mono text-slate-900 focus:border-amber-600 focus:outline-none"
             >
+              <option value="130x130">130 × 130 (Acmer S1)</option>
               <option value="200x200">200 × 200</option>
               <option value="300x300">300 × 300</option>
               <option value="400x400">400 × 400</option>

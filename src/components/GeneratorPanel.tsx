@@ -1174,22 +1174,63 @@ export const GeneratorPanel: React.FC<GeneratorPanelProps> = ({
               />
             )}
 
-            <div className="space-y-2 pt-1">
+            <div className="space-y-3 pt-1">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-700 block">
+                  Taglio esterno attorno al disegno
+                </label>
+                <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-md">
+                  {(
+                    [
+                      { id: 'none', label: 'Nessuno' },
+                      { id: 'rectangle', label: 'Rettangolo' },
+                      { id: 'silhouette', label: 'Sagoma' },
+                    ] as const
+                  ).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        const nextOutline =
+                          item.id === 'silhouette' && tracer.outlineLayer === 'cut'
+                            ? 'engrave'
+                            : tracer.outlineLayer;
+                        onTracerChange({
+                          ...tracer,
+                          cutFrameMode: item.id,
+                          outlineLayer: nextOutline,
+                        });
+                      }}
+                      className={`py-1.5 text-xs font-medium rounded transition-colors ${
+                        tracer.cutFrameMode === item.id
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {tracer.cutFrameMode !== 'none' && (
+                <RangeRow
+                  label="Margine taglio esterno"
+                  value={tracer.frameMarginMm}
+                  unit=" mm"
+                  min={2}
+                  max={16}
+                  step={0.5}
+                  onChange={(v) => onTracerChange({ ...tracer, frameMarginMm: v })}
+                />
+              )}
+
               <label className="flex items-center justify-between text-xs text-slate-700 cursor-pointer">
                 <span>Inverti aree chiare/scure</span>
                 <input
                   type="checkbox"
                   checked={tracer.invert}
                   onChange={(e) => onTracerChange({ ...tracer, invert: e.target.checked })}
-                  className="rounded border-slate-300 text-amber-700 focus:ring-amber-600"
-                />
-              </label>
-              <label className="flex items-center justify-between text-xs text-slate-700 cursor-pointer">
-                <span>Aggiungi cornice taglio esterna</span>
-                <input
-                  type="checkbox"
-                  checked={tracer.addOuterCutFrame}
-                  onChange={(e) => onTracerChange({ ...tracer, addOuterCutFrame: e.target.checked })}
                   className="rounded border-slate-300 text-amber-700 focus:ring-amber-600"
                 />
               </label>

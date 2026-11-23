@@ -163,6 +163,6 @@ export interface TracerParams {
   outlineLayer: LayerType;
   fillMode: 'outline' | 'hatch_0' | 'hatch_45' | 'crosshatch';
   hatchSpacingMm: number;
-  addOuterCutFrame: boolean;
+  cutFrameMode: 'none' | 'rectangle' | 'silhouette';
   frameMarginMm: number;
 }

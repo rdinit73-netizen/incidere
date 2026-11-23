@@ -376,8 +376,8 @@ export async function traceImageToVectors(
     }
   }
 
-  // Optional outer cutting frame around traced artwork
-  if (params.addOuterCutFrame) {
+  // Optional outer cutting boundary around traced artwork
+  if (params.cutFrameMode === 'rectangle') {
     const m = params.frameMarginMm;
     const fx = ox - m;
     const fy = oy - m;
@@ -403,6 +403,98 @@ export async function traceImageToVectors(
       closed: true,
       layerId: 'cut',
       label: 'Cornice taglio esterno',
+    });
+  } else if (params.cutFrameMode === 'silhouette' && outlinePolys.length > 0) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const poly of outlinePolys) {
+      for (const p of poly) {
+        if (p.x < minX) minX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y > maxY) maxY = p.y;
+      }
+    }
+    const margin = Math.max(1.5, params.frameMarginMm);
+    const padMm = margin + 4;
+    const silScale = 3.2; // px per mm
+    const sw = Math.min(900, Math.max(40, Math.round((maxX - minX + padMm * 2) * silScale)));
+    const sh = Math.min(900, Math.max(40, Math.round((maxY - minY + padMm * 2) * silScale)));
+
+    const silCanvas = document.createElement('canvas');
+    silCanvas.width = sw;
+    silCanvas.height = sh;
+    const sctx = silCanvas.getContext('2d')!;
+    sctx.fillStyle = '#ffffff';
+    sctx.fillRect(0, 0, sw, sh);
+
+    sctx.fillStyle = '#000000';
+    sctx.strokeStyle = '#000000';
+    sctx.lineWidth = margin * 2 * silScale;
+    sctx.lineJoin = 'round';
+    sctx.lineCap = 'round';
+
+    for (const poly of outlinePolys) {
+      if (poly.length < 3) continue;
+      sctx.beginPath();
+      poly.forEach((pt, idx) => {
+        const px = (pt.x - minX + padMm) * silScale;
+        const py = (pt.y - minY + padMm) * silScale;
+        if (idx === 0) sctx.moveTo(px, py);
+        else sctx.lineTo(px, py);
+      });
+      sctx.closePath();
+      sctx.fill();
+      sctx.stroke();
+    }
+
+    const sData = sctx.getImageData(0, 0, sw, sh).data;
+    const sgw = sw + 2;
+    const sgh = sh + 2;
+    const sGrid = new Uint8Array(sgw * sgh);
+    for (let y = 0; y < sh; y++) {
+      for (let x = 0; x < sw; x++) {
+        sGrid[(y + 1) * sgw + (x + 1)] = sData[(y * sw + x) * 4] < 140 ? 1 : 0;
+      }
+    }
+
+    const silRaw = extractBinaryContours(sGrid, sgw, sgh);
+    const silPolys: Point2D[][] = [];
+    for (const sr of silRaw) {
+      let pts = sr.pts.map((p) => ({
+        x: minX - padMm + (p.x - 1) / silScale,
+        y: minY - padMm + (p.y - 1) / silScale,
+      }));
+      if (pts.length < 6) continue;
+      pts = smoothChaikin(pts, sr.closed, 1);
+      pts = simplifyRDP(pts, 0.2);
+      if (pts.length >= 4) silPolys.push(pts);
+    }
+
+    // Keep only outermost contours (discard any small internal unclosed hole pockets)
+    const isInside = (pt: Point2D, poly: Point2D[]) => {
+      let inside = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i].x, yi = poly[i].y;
+        const xj = poly[j].x, yj = poly[j].y;
+        if (yi > pt.y !== yj > pt.y && pt.x < ((xj - xi) * (pt.y - yi)) / (yj - yi + 1e-12) + xi) {
+          inside = !inside;
+        }
+      }
+      return inside;
+    };
+
+    silPolys.forEach((poly, idx) => {
+      const testPt = poly[0];
+      const contained = silPolys.some((other, oIdx) => oIdx !== idx && isInside(testPt, other));
+      if (!contained) {
+        paths.push({
+          id: `trace_sil_${idCounter++}`,
+          points: poly,
+          closed: true,
+          layerId: 'cut',
+          label: 'Sagoma taglio esterna',
+        });
+      }
     });
   }
 
